@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>ECO-VANGUARD: THE LAST RESISTANCE | FINAL BUILD v4.0</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+        :root {
+            --p-green: #00ff41; --p-blue: #00e5ff; --p-red: #ff3e3e; --p-yellow: #f1c40f;
+            --bg-dark: #050505; --panel-bg: rgba(10, 10, 10, 0.9);
+        }
+
+        /* --- CORE CSS FRAMEWORK --- */
+        * { box-sizing: border-box; cursor: crosshair; image-rendering: pixelated; }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            background: var(--bg-dark); color: var(--p-green);
+            font-family: 'VT323', monospace; overflow: hidden;
+        }
+
+        /* Scanline & Glitch VFX */
+        .crt::before {
+            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 1000; background-size: 100% 2px, 3px 100%; pointer-events: none;
+        }
+
+        /* --- LAYOUT --- */
+        #game-container {
+            display: grid; grid-template-columns: 280px 1fr 300px;
+            grid-template-rows: 60px 1fr 180px; height: 100vh; gap: 4px;
+            background: #222; border: 4px solid #444;
+        }
+
+        .panel { background: var(--bg-dark); border: 2px solid #333; position: relative; overflow: hidden; }
+        header { grid-column: 1 / 4; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 2px solid var(--p-green); }
+
+        /* --- WORLD VIEWPORT --- */
+        #viewport { 
+            grid-column: 2; grid-row: 2; position: relative; 
+            background: #1a1a1a; transition: 1s ease;
+        }
+
+        #player {
+            width: 48px; height: 48px; position: absolute;
+            background: url('https://api.dicebear.com/7.x/pixel-art/svg?seed=GreenHero') no-repeat;
+            transition: 0.1s linear; z-index: 100; transform: translate(-50%, -50%);
+            filter: drop-shadow(0 0 10px var(--p-green));
+        }
+
+        /* --- DYNAMIC UI ELEMENTS --- */
+        .bio-pot-container { text-align: center; }
+        #bio-plant { font-size: 2.5rem; transition: 0.5s; display: block; }
+        
+        .stat-bar { width: 100%; height: 12px; background: #222; border: 1px solid #444; margin: 5px 0; }
+        .stat-fill { height: 100%; width: 50%; transition: 0.5s; }
+
+        /* --- INVENTORY & CRAFTING --- */
+        .inv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; padding: 10px; }
+        .slot { 
+            aspect-ratio: 1/1; background: #111; border: 2px solid #333; 
+            display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+        }
+        .slot:hover { border-color: var(--p-blue); background: #1a1a1a; }
+
+        /* --- DIALOGUE SYSTEM --- */
+        #dialogue-area {
+            grid-column: 2; grid-row: 3; background: rgba(0,0,0,0.9);
+            border-top: 4px double var(--p-green); padding: 20px;
+            font-size: 1.4rem; color: #fff;
+        }
+
+        /* --- ANIMATIONS --- */
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+        .warning { color: var(--p-red); animation: pulse 1s infinite; }
+        
+        /* Particle Flora */
+        .leaf { position: absolute; pointer-events: none; animation: fall 3s linear forwards; }
+        @keyframes fall { to { transform: translateY(400px) rotate(360deg); opacity: 0; } }
+
+        /* Finale Overlay */
+        #finale {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: #fff; display:none; z-index: 9999; flex-direction: column;
+            align-items: center; justify-content: center; color: #000;
+        }
+    </style>
+</head>
+<body class="crt">
+
+<div id="game-container">
+    <header class="panel">
+        <div style="font-family: 'Press Start 2P', cursive; font-size: 0.8rem;">ECO-VANGUARD OS v2100.4</div>
+        <div style="display: flex; gap: 30px;">
+            <div>AQI: <span id="aqi-val" class="warning">480</span></div>
+            <div>CO2: <span id="co2-val">0.04%</span></div>
+            <div>HÀNH TINH: <span id="earth-health" style="color: var(--p-blue);">SẮP CHẾT</span></div>
+        </div>
+    </header>
+
+    <aside class="panel" style="padding: 15px;">
+        <div class="bio-pot-container">
+            <span id="bio-plant">🥀</span>
+            <div style="font-size: 0.9rem; margin-top: 10px;">BIO-METER</div>
+            <div class="stat-bar"><div id="hp-bar" class="stat-fill" style="background: var(--p-red); width: 20%;"></div></div>
+        </div>
+        <hr border="1" style="border-color: #333; margin: 20px 0;">
+        <h3 style="color: var(--p-blue);">NHIỆM VỤ</h3>
+        <ul id="mission-list" style="font-size: 0.9rem; list-style: none; padding: 0;">
+            <li>[!] Quét rác tại Dustlands</li>
+            <li>[ ] Tìm chip cho E-KO</li>
+            <li>[ ] Đánh bại Plastic Kraken</li>
+        </ul>
+    </aside>
+
+    <main id="viewport">
+        <div id="player"></div>
+        <div id="entity-layer"></div> <div id="location-tag" style="position:absolute; top:20px; left:20px; background:rgba(0,0,0,0.7); padding:5px 15px; border-left:4px solid var(--p-green);">
+            THE DUSTLANDS (ZONE 01)
+        </div>
+    </main>
+
+    <aside class="panel">
+        <h3 style="padding: 10px; margin: 0; background: #222; font-size: 1rem;">KHO ĐỒ TÁI CHẾ</h3>
+        <div class="inv-grid" id="inventory">
+            <div class="slot" title="Nhựa">♻️</div><div class="slot" title="Pin">🔋</div><div class="slot"></div><div class="slot"></div>
+            <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
+            <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
+            <div class="slot"></div><div class="slot"></div><div class="slot"></div><div class="slot"></div>
+        </div>
+        <div style="padding: 15px;">
+            <h3 style="font-size: 1rem;">CHẾ TẠO (CRAFT)</h3>
+            <button class="slot" style="width: 100%; height: auto; padding: 10px; font-size: 1rem; cursor: pointer;" onclick="craftItem('drone')">
+                LẮP DRONE E-KO (5x🔋 + 2x♻️)
+            </button>
+            <button class="slot" style="width: 100%; height: auto; padding: 10px; font-size: 1rem; margin-top: 10px; background: var(--p-green); color: #000;" onclick="activatePurification()">
+                THANH TẨY TOÀN VÙNG
+            </button>
+        </div>
+    </aside>
+
+    <footer id="dialogue-area">
+        <div id="typewriter">Đang khởi động hệ thống... Kết nối với Chiến Binh Xanh...</div>
+    </footer>
+</div>
+
+<div id="finale">
+    <video id="webcam" autoplay style="width: 400px; height: 300px; border: 8px solid var(--p-green);"></video>
+    <h1 style="font-family: 'Press Start 2P'; margin-top: 20px;">VỊ CỨU TINH XUẤT HIỆN</h1>
+    <p id="finale-text" style="width: 60%; text-align: center; font-size: 1.5rem;"></p>
+    <button onclick="location.reload()" style="padding: 20px; font-family: inherit; font-size: 1.2rem; cursor: pointer;">TÁI SINH THẾ GIỚI LẦN NỮA</button>
+</div>
+
+<script>
+    /* ---------------------------------------------------------
+       GAME ENGINE CORE LOGIC (EXPANDED)
+       --------------------------------------------------------- */
+    
+    const state = {
+        hp: 20, aqi: 480, co2: 0.04, earth: 0,
+        inventory: ['♻️', '🔋'],
+        currentZone: 'Dustlands',
+        isFinale: false
+    };
+
+    const entities = [
+        { name: 'Rác Nhựa', icon: '🥤', x: 200, y: 150, type: 'item' },
+        { name: 'Pin Rò Rỉ', icon: '🪫', x: 500, y: 300, type: 'hazard' },
+        { name: 'Plastic Kraken', icon: '🐙', x: 800, y: 200, type: 'boss' }
+    ];
+
+    // 1. Khởi tạo thực thể
+    function initWorld() {
+        const layer = document.getElementById('entity-layer');
+        entities.forEach((en, index) => {
+            const div = document.createElement('div');
+            div.innerHTML = en.icon;
+            div.style.position = 'absolute';
+            div.style.left = en.x + 'px';
+            div.style.top = en.y + 'px';
+            div.style.fontSize = '2rem';
+            div.style.cursor = 'pointer';
+            div.id = `entity-${index}`;
+            div.onclick = () => interact(index);
+            layer.appendChild(div);
+        });
+    }
+
+    // 2. Hệ thống di chuyển & Vệt mầm xanh
+    document.addEventListener('mousemove', (e) => {
+        if(state.isFinale) return;
+        const p = document.getElementById('player');
+        const view = document.getElementById('viewport').getBoundingClientRect();
+        
+        let x = e.clientX - view.left;
+        let y = e.clientY - view.top;
+
+        // Giới hạn trong khung nhìn
+        if(x > 0 && x < view.width && y > 0 && y < view.height) {
+            p.style.left = x + 'px';
+            p.style.top = y + 'px';
+            spawnLeaf(x + view.left, y + view.top);
+        }
+    });
+
+    function spawnLeaf(x, y) {
+        const leaf = document.createElement('div');
+        leaf.className = 'leaf';
+        leaf.innerHTML = '🌿';
+        leaf.style.left = x + 'px';
+        leaf.style.top = y + 'px';
+        document.body.appendChild(leaf);
+        setTimeout(() => leaf.remove(), 2000);
+    }
+
+    // 3. Hệ thống tương tác
+    function interact(id) {
+        const en = entities[id];
+        if(en.type === 'item') {
+            log(`Bạn đã nhặt ${en.name}. +5% Sinh mệnh.`);
+            updateStats(5, -10);
+            document.getElementById(`entity-${id}`).remove();
+        } else if(en.type === 'boss') {
+            log("CẢNH BÁO: ĐANG GIAO CHIẾN VỚI PLASTIC KRAKEN!");
+            fightBoss();
+        }
+    }
+
+    function log(msg) {
+        const area = document.getElementById('typewriter');
+        area.innerText = `> ${msg}`;
+    }
+
+    function updateStats(hpInc, aqiInc) {
+        state.hp = Math.min(100, state.hp + hpInc);
+        state.aqi = Math.max(10, state.aqi + aqiInc);
+        
+        document.getElementById('hp-bar').style.width = state.hp + '%';
+        document.getElementById('aqi-val').innerText = state.aqi;
+        
+        if(state.hp > 50) {
+            document.getElementById('bio-plant').innerText = '🌿';
+            document.getElementById('earth-health').innerText = 'DẦN HỒI PHỤC';
+        }
+        if(state.hp >= 100) {
+            document.getElementById('bio-plant').innerText = '🌸';
+            document.getElementById('earth-health').innerText = 'XANH TƯƠI';
+        }
+    }
+
+    // 4. Hệ thống thanh tẩy & Kết thúc sử thi
+    function activatePurification() {
+        if(state.hp < 100) {
+            log("Năng lượng Bio-Meter chưa đủ để thực hiện thanh tẩy toàn cầu!");
+            return;
+        }
+        
+        state.isFinale = true;
+        log("KHỞI ĐỘNG CÁNH CỬA THỜI GIAN... 3... 2... 1...");
+        
+        setTimeout(() => {
+            const fin = document.getElementById('finale');
+            fin.style.display = 'flex';
+            startWebcam();
+            typeFinale("Bạn đã thắng. Nhưng hãy nhìn kỹ người trong gương. Đây mới là vị cứu tinh thực sự mà Trái Đất năm 2026 đang cần. Hãy bắt đầu từ một chai nhựa, một mầm cây ngay hôm nay.");
+        }, 3000);
+    }
+
+    function typeFinale(txt) {
+        let i = 0;
+        const target = document.getElementById('finale-text');
+        const timer = setInterval(() => {
+            target.innerHTML += txt[i];
+            i++;
+            if(i >= txt.length) clearInterval(timer);
+        }, 50);
+    }
+
+    function startWebcam() {
+        const video = document.getElementById('webcam');
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => video.srcObject = stream)
+            .catch(() => video.style.background = "#333");
+    }
+
+    // Khởi tạo game
+    window.onload = () => {
+        initWorld();
+        log("Hệ thống đã sẵn sàng. Di chuyển chuột để khám phá.");
+    };
+
+</script>
+</body>
+</html>
